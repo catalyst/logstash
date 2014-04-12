@@ -160,7 +160,7 @@ describe "conditionals" do
         if "foo" not in "baz" { mutate { add_tag => "baz" } }
         if "foo" not in "foo" { mutate { add_tag => "foo" } }
         if !("foo" not in "foo") { mutate { add_tag => "notfoo" } }
-        if "foo" not in [somelist] { mutate { add_tag => "notsomelist" } } 
+        if "foo" not in [somelist] { mutate { add_tag => "notsomelist" } }
         if "one" not in [somelist] { mutate { add_tag => "somelist" } }
         if "foo" not in [alsomissing] { mutate { add_tag => "no string in missing field" } }
       }
@@ -183,12 +183,12 @@ describe "conditionals" do
     conditional "[message] == 'sample'" do
       sample("sample") { insist { subject["tags"] }.include?("success") }
       sample("different") { insist { subject["tags"] }.include?("failure") }
-    end 
+    end
 
     conditional "[message] != 'sample'" do
       sample("sample") { insist { subject["tags"] }.include?("failure") }
       sample("different") { insist { subject["tags"] }.include?("success") }
-    end 
+    end
 
     conditional "[message] < 'sample'" do
       sample("apple") { insist { subject["tags"] }.include?("success") }
@@ -230,12 +230,12 @@ describe "conditionals" do
     conditional "!([message] == 'sample')" do
       sample("sample") { reject { subject["tags"] }.include?("success") }
       sample("different") { reject { subject["tags"] }.include?("failure") }
-    end 
+    end
 
     conditional "!([message] != 'sample')" do
       sample("sample") { reject { subject["tags"] }.include?("failure") }
       sample("different") { reject { subject["tags"] }.include?("success") }
-    end 
+    end
 
     conditional "!([message] < 'sample')" do
       sample("apple") { reject { subject["tags"] }.include?("success") }
