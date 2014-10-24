@@ -23,7 +23,7 @@ end
 
 describe "conditionals in output" do
   extend LogStash::RSpec
-  extend ConditionalFanciness
+  extend ConditionalFancines
 
   describe "simple" do
     config <<-CONFIG
