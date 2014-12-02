@@ -69,11 +69,15 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
   # where OldTemplateName is whatever the former setting was.
   config :template_name, :validate => :string, :default => "logstash"
 
+  # You can set the path to the base template, if you so desire.
+  # If not set, the included template will be used.
+  config :base_template, :validate => :string
+
   # You can set the path to your own template here, if you so desire.
   # If not set, the included template will be used.
-  config :template, :validate => :path
+  config :template, :validate => :string
 
-  # Overwrite the current template with whatever is configured
+  # Overwrite the current template with whatever is configuredg
   # in the template and template_name directives.
   config :template_overwrite, :validate => :boolean, :default => false
 
@@ -254,12 +258,6 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
                  :host => @host, :port => @port, :embedded => @embedded,
                  :protocol => @protocol)
 
-
-    if @manage_template
-      @logger.info("Automatic template management enabled", :manage_template => @manage_template.to_s)
-      @client.template_install(@template_name, get_template, @template_overwrite)
-    end # if @manage_templates
-
     buffer_initialize(
       :max_items => @flush_size,
       :max_interval => @idle_flush_time,
@@ -268,18 +266,24 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
   end # def register
 
   public
-  def get_template
-    if @template.nil?
-      @template = LogStash::Environment.plugin_path("outputs/elasticsearch/elasticsearch-template.json")
-      if !File.exists?(@template)
-        raise "You must specify 'template => ...' in your elasticsearch output (I looked for '#{@template}')"
+    def get_template(event)
+      if @base_template.nil?
+        @base_template = LogStash::Environment.plugin_path("outputs/elasticsearch/base_template.json")
+        if !File.exists?(@base_template)
+          raise "You must specify 'base_template => ...' in your elasticsearch output (I looked for '#{@base_template}')"
+        end
       end
-    end
-    template_json = IO.read(@template).gsub(/\n/,'')
-    @logger.info("Using mapping template", :template => template_json)
-    return LogStash::Json.load(template_json)
+      template_client = ""
+      if File.exists?(event.sprintf(@template))
+          template_client = "," + IO.read(event.sprintf(@template)).gsub(/\n/,'')
+      end
+      template_file = IO.read(@base_template).gsub(/\n/,'')
+      template_file = event.sprintf(template_file)
+      template_json = template_file.gsub(/%{PROPERTIES}/, template_client)
+      @logger.info("Using mapping template", :template =>template_json)
+      return LogStash::Json.load(template_json)
   end # def get_template
-
+  
   protected
   def start_local_elasticsearch
     @logger.info("Starting embedded Elasticsearch local node.")
@@ -298,6 +302,11 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
   public
   def receive(event)
     return unless output?(event)
+
+    if @manage_template
+      @logger.info("Automatic template management enabled", :manage_template => @manage_template.to_s)
+      @client.template_install(event.sprintf(@template_name), get_template(event), @template_overwrite)
+    end # if @manage_templates
 
     # Set the 'type' value for the index.
     if @index_type
