@@ -77,7 +77,7 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
   # If not set, the included template will be used.
   config :template, :validate => :string
 
-  # Overwrite the current template with whatever is configuredg
+  # Overwrite the current template with whatever is configured
   # in the template and template_name directives.
   config :template_overwrite, :validate => :boolean, :default => false
 
@@ -283,7 +283,7 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
       @logger.info("Using mapping template", :template =>template_json)
       return LogStash::Json.load(template_json)
   end # def get_template
-  
+
   protected
   def start_local_elasticsearch
     @logger.info("Starting embedded Elasticsearch local node.")
