@@ -15,8 +15,14 @@ class LogStash::Outputs::RabbitMQ
 
       @connected = java.util.concurrent.atomic.AtomicBoolean.new
 
+      if @debug || @host.length == 1
+        @cur_index = 0
+      else
+        @cur_index = rand(@host.length)
+      end
+
       connect
-      declare_exchange
+      @x = declare_exchange
 
       @connected.set(true)
 
@@ -50,19 +56,19 @@ class LogStash::Outputs::RabbitMQ
 
         @logger.error("RabbitMQ connection error: #{e.message}. Will attempt to reconnect in #{n} seconds...",
                       :exception => e,
-                      :backtrace => e.backtrace)
+                      :backtrace => e.backtrace) if not @debug
         return if terminating?
 
-        sleep n
+        sleep n if @host.length == 1
 
         connect
-        declare_exchange
+        @x = declare_exchange
         retry
       end
     end
 
     def to_s
-      return "amqp://#{@user}@#{@host}:#{@port}#{@vhost}/#{@exchange_type}/#{@exchange}\##{@key}"
+      return "amqp://#{@user}@#{@host[0]}:#{@port}#{@vhost}/#{@exchange_type}/#{@exchange}\##{@key}"
     end
 
     def teardown
@@ -82,14 +88,17 @@ class LogStash::Outputs::RabbitMQ
     def connect
       return if terminating?
 
+      host, port = @host[@cur_index].split(":")
+      @cur_index = (@cur_index + 1) % @host.length
+
       @vhost       ||= "127.0.0.1"
       # 5672. Will be switched to 5671 by Bunny if TLS is enabled.
-      @port        ||= 5672
+      port        ||= @port || 5672
 
       @settings = {
         :vhost => @vhost,
-        :host  => @host,
-        :port  => @port,
+        :host  => host,
+        :port  => Integer(port),
         :user  => @user,
         :automatic_recovery => false
       }
@@ -105,7 +114,7 @@ class LogStash::Outputs::RabbitMQ
                                else
                                  "amqps"
                                end
-      @connection_url        = "#{proto}://#{@user}@#{@host}:#{@port}#{vhost}/#{@queue}"
+      @connection_url        = "#{proto}://#{@user}@#{host}:#{port}#{vhost}/#{@queue}"
 
       begin
         @conn = MarchHare.connect(@settings)
@@ -120,23 +129,27 @@ class LogStash::Outputs::RabbitMQ
 
         @logger.error("RabbitMQ connection error: #{e.message}. Will attempt to reconnect in #{n} seconds...",
                       :exception => e,
-                      :backtrace => e.backtrace)
+                      :backtrace => e.backtrace) if not @debug
         return if terminating?
 
-        sleep n
-        retry
+        if @host.length == 1
+          sleep n
+          retry
+        else
+          connect # Try another server
+        end
       end
     end
 
     def declare_exchange
       @logger.debug("Declaring an exchange", :name => @exchange, :type => @exchange_type,
                     :durable => @durable)
-      @x = @ch.exchange(@exchange, :type => @exchange_type.to_sym, :durable => @durable)
+      x = @ch.exchange(@exchange, :type => @exchange_type.to_sym, :durable => @durable)
 
       # sets @connected to true during recovery. MK.
       @connected.set(true)
 
-      @x
+      x
     end
 
   end # MarchHareImpl
