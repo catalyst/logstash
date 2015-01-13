@@ -206,6 +206,9 @@ module LogStash::Outputs::Elasticsearch
         end
         response = prep.execute.actionGet()
 
+        if response.hasFailures?
+          return response.hasFailures
+        end
         # TODO(sissel): What format should the response be in?
       end # def bulk
 
